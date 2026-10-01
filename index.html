@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive weather and forecast dashboard built with vanilla JavaScript and Open-Meteo." />
+    <title>Weather App</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Open-Meteo weather dashboard</p>
+          <h1>Weather App</h1>
+          <p class="hero-copy">Search any city to see live conditions, a five-day forecast, and key metrics in a clean responsive layout.</p>
+        </div>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle light and dark mode">
+          <span class="theme-toggle__icon" aria-hidden="true">◐</span>
+          <span data-theme-label>Dark mode</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="search-panel" aria-labelledby="search-heading">
+          <div>
+            <h2 id="search-heading">Find a location</h2>
+            <p>Enter a city or location name and press Enter or Search.</p>
+          </div>
+
+          <form class="search-form" data-search-form>
+            <label class="sr-only" for="location-input">City or location</label>
+            <input id="location-input" name="location" type="search" placeholder="Try Tokyo, Nairobi, or Lisbon" autocomplete="off" data-search-input />
+            <button type="submit" class="primary-button">Search</button>
+          </form>
+
+          <button class="secondary-button" type="button" data-location-button>Use my location</button>
+
+          <p class="status-message" role="status" aria-live="polite" data-status-message></p>
+        </section>
+
+        <section class="dashboard" aria-live="polite">
+          <article class="current-weather card" data-current-weather>
+            <div class="card__loading" data-current-loading>
+              <div class="skeleton skeleton--title"></div>
+              <div class="skeleton skeleton--icon"></div>
+              <div class="skeleton skeleton--line"></div>
+              <div class="skeleton skeleton--line"></div>
+              <div class="skeleton skeleton--line short"></div>
+            </div>
+
+            <div class="current-weather__content is-hidden" data-current-content>
+              <div class="current-weather__header">
+                <div>
+                  <p class="current-weather__day" data-current-day></p>
+                  <h3 data-location-name>Search for a city</h3>
+                  <p class="current-weather__date" data-current-date></p>
+                </div>
+                <div class="current-weather__icon" data-weather-icon aria-hidden="true">⛅</div>
+              </div>
+
+              <div class="current-weather__summary">
+                <div>
+                  <output class="current-weather__temperature" data-current-temperature>--°</output>
+                  <p class="current-weather__description" data-current-description>Weather details will appear here.</p>
+                </div>
+                <div class="current-weather__feels-like">
+                  <span>Feels like</span>
+                  <output data-feels-like>--°</output>
+                </div>
+              </div>
+
+              <div class="metrics-grid">
+                <div class="metric">
+                  <span>Humidity</span>
+                  <output data-humidity>--%</output>
+                </div>
+                <div class="metric">
+                  <span>Wind</span>
+                  <output data-wind-speed>-- km/h</output>
+                </div>
+                <div class="metric">
+                  <span>Condition</span>
+                  <output data-condition-label>--</output>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <aside class="forecast card">
+            <div class="card__section-header">
+              <div>
+                <p class="section-kicker">Five-day outlook</p>
+                <h2>Forecast</h2>
+              </div>
+            </div>
+
+            <div class="forecast__loading" data-forecast-loading>
+              <div class="forecast-skeleton"></div>
+              <div class="forecast-skeleton"></div>
+              <div class="forecast-skeleton"></div>
+              <div class="forecast-skeleton"></div>
+              <div class="forecast-skeleton"></div>
+            </div>
+
+            <div class="forecast__list is-hidden" data-forecast-list></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <template id="forecast-card-template">
+      <article class="forecast-card">
+        <p class="forecast-card__day"></p>
+        <div class="forecast-card__icon" aria-hidden="true"></div>
+        <p class="forecast-card__temps"></p>
+        <p class="forecast-card__label"></p>
+      </article>
+    </template>
+  </body>
+</html>
