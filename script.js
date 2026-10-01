@@ -244,12 +244,6 @@ function requestCurrentLocationWeather() {
     return;
   }
 
-  if (!window.isSecureContext) {
-    setStatus("Location access requires HTTPS or localhost. Open this page through a local server, then use the location button.", true);
-    setLoading(false);
-    return;
-  }
-
   setStatus("Requesting your location...");
   setLoading(true);
 
@@ -258,15 +252,21 @@ function requestCurrentLocationWeather() {
       const { latitude, longitude } = position.coords;
       loadWeatherByCoordinates(latitude, longitude, "Your location");
     },
-    () => {
+    (error) => {
       setLoading(false);
-      setStatus("Location access was denied or unavailable. Search for a city instead.", true);
+      const message =
+        error.code === error.PERMISSION_DENIED
+          ? "Location access was denied. Allow it in the browser prompt, then try again."
+          : error.code === error.POSITION_UNAVAILABLE
+            ? "Your current location could not be determined right now. Try again in a moment."
+            : "Location lookup timed out. Try the location button again.";
+      setStatus(message, true);
       searchInput.focus();
     },
     {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000,
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 0,
     },
   );
 }
