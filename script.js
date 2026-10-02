@@ -1,33 +1,35 @@
+// Application State Management
 const AppState = {
     currentUnit: 'C', // 'C' or 'F'
     currentTheme: localStorage.getItem('atmosphere_theme') || 'dark',
-    recentSearches: JSON.parse(localStorage.getItem('atmosphere_recent')) || ['Tokyo', 'London', 'New York'],
+    recentSearches: JSON.parse(localStorage.getItem('atmosphere_recent')) || ['Mumbai', 'London', 'New York'],
     lastLocationData: null,
     lastWeatherData: null,
     debounceTimer: null
 };
 
+// Standard WMO Weather Interpretation Codes
 const WMO_CODES = {
     0: { label: 'Clear Sky', icon: '☀️' },
     1: { label: 'Mainly Clear', icon: '🌤️' },
     2: { label: 'Partly Cloudy', icon: '⛅' },
     3: { label: 'Overcast', icon: '☁️' },
     45: { label: 'Foggy', icon: '🌫️' },
-    48: { label: 'Depositing Rime Fog', icon: '🌫️' },
+    48: { label: 'Rime Fog', icon: '🌫️' },
     51: { label: 'Light Drizzle', icon: '🌦️' },
-    53: { label: 'Moderate Drizzle', icon: '🌧️' },
+    53: { label: 'Moderate Drizzle', icon: '🌧' },
     55: { label: 'Dense Drizzle', icon: '🌧️' },
-    61: { label: 'Slight Rain', icon: '🌦️️' },
+    61: { label: 'Slight Rain', icon: '🌦️' },
     63: { label: 'Moderate Rain', icon: '🌧️' },
     65: { label: 'Heavy Rain', icon: '🌧️' },
     71: { label: 'Slight Snow', icon: '🌨️' },
     73: { label: 'Moderate Snow', icon: '❄️' },
-    75: { label: 'Heavy Snow', icon: '❄️️' },
-    80: { label: 'Slight Rain Showers', icon: '🌦' },
-    81: { label: 'Moderate Rain Showers', icon: '🌧️' },
-    82: { label: 'Violent Rain Showers', icon: '⛈️' },
+    75: { label: 'Heavy Snow', icon: '❄️' },
+    80: { label: 'Light Showers', icon: '🌦️' },
+    81: { label: 'Moderate Showers', icon: '🌧️' },
+    82: { label: 'Violent Showers', icon: '⛈️' },
     95: { label: 'Thunderstorm', icon: '🌩️' },
-    96: { label: 'Thunderstorm with Hail', icon: '⛈️' },
+    96: { label: 'Thunderstorm Hail', icon: '⛈️' },
     99: { label: 'Heavy Hailstorm', icon: '⛈️' }
 };
 
@@ -56,12 +58,13 @@ const DOM = {
     forecastGrid: document.getElementById('forecastGrid')
 };
 
+// Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     renderRecentSearches();
     setupEventListeners();
     
-    // Auto-request user location immediately on load
+    // Immediate Geolocation request on page open
     autoDetectLocationOnLoad();
 });
 
@@ -69,13 +72,14 @@ function autoDetectLocationOnLoad() {
     if (navigator.geolocation) {
         showLoadingState();
         hideError();
+        
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
                 await fetchWeatherData(latitude, longitude, 'Your Location');
             },
             (error) => {
-                // If permission is denied or unavailable, load recent city or default
+                // On permission denial or timeout, load default city
                 const fallbackCity = AppState.recentSearches[0] || 'London';
                 fetchWeatherForCity(fallbackCity);
             },
@@ -88,16 +92,10 @@ function autoDetectLocationOnLoad() {
 }
 
 function setupEventListeners() {
-    // Theme toggle
     DOM.themeToggle.addEventListener('click', toggleTheme);
-
-    // Unit toggle
     DOM.unitToggle.addEventListener('click', toggleTemperatureUnit);
-
-    // Geolocation button
     DOM.geoBtn.addEventListener('click', handleGeolocation);
 
-    // Search Form Submit
     DOM.searchForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const query = DOM.searchInput.value.trim();
@@ -107,7 +105,7 @@ function setupEventListeners() {
         }
     });
 
-    // Live autocomplete input debouncing
+    // Autocomplete search input debouncing
     DOM.searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         clearTimeout(AppState.debounceTimer);
@@ -122,14 +120,12 @@ function setupEventListeners() {
         }, 300);
     });
 
-    // Close suggestions on click outside
     document.addEventListener('click', (e) => {
         if (!DOM.searchForm.contains(e.target)) {
             hideSuggestions();
         }
     });
 
-    // Clear history button
     DOM.clearHistoryBtn.addEventListener('click', clearSearchHistory);
 }
 
@@ -161,8 +157,7 @@ function celsiusToFahrenheit(c) {
 
 function formatTemp(celsius) {
     if (celsius === undefined || celsius === null) return '--';
-    const val = AppState.currentUnit === 'F' ? celsiusToFahrenheit(celsius) : Math.round(celsius);
-    return val;
+    return AppState.currentUnit === 'F' ? celsiusToFahrenheit(celsius) : Math.round(celsius);
 }
 
 async function fetchWeatherForCity(cityName) {
@@ -170,11 +165,10 @@ async function fetchWeatherForCity(cityName) {
     hideError();
 
     try {
-        // Step 1: Geocode City Name
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=5&language=en&format=json`;
         const geoRes = await fetch(geoUrl);
         
-        if (!geoRes.ok) throw new Error('Network error while looking up city.');
+        if (!geoRes.ok) throw new Error('Failed to search city.');
         const geoData = await geoRes.json();
 
         if (!geoData.results || geoData.results.length === 0) {
@@ -187,16 +181,16 @@ async function fetchWeatherForCity(cityName) {
         
         saveRecentSearch(location.name);
     } catch (err) {
-        showError(err.message || 'Unable to load weather details.');
+        showError(err.message || 'Unable to fetch weather data.');
     }
 }
 
 async function fetchWeatherData(lat, lon, displayName) {
     try {
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`;
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max,precipitation_probability_max&timezone=auto`;
         
         const response = await fetch(weatherUrl);
-        if (!response.ok) throw new Error('Failed to retrieve forecast data.');
+        if (!response.ok) throw new Error('Forecast service unavailable.');
 
         const data = await response.json();
 
@@ -223,7 +217,7 @@ async function fetchCitySuggestions(query) {
             hideSuggestions();
         }
     } catch (err) {
-        // Silence autocomplete network errors
+        // Ignore network error during autocomplete typing
     }
 }
 
@@ -234,7 +228,7 @@ function renderSuggestions(results) {
         div.className = 'suggestion-item';
         div.innerHTML = `
             <span><strong>${item.name}</strong>, <small>${item.admin1 ? item.admin1 + ', ' : ''}${item.country || ''}</small></span>
-            <span style="font-size:0.75rem; opacity:0.6;">📍</span>
+            <small style="color:var(--text-muted)">📍</small>
         `;
         div.addEventListener('click', () => {
             DOM.searchInput.value = item.name;
@@ -267,7 +261,7 @@ function handleGeolocation() {
             await fetchWeatherData(latitude, longitude, 'Your Location');
         },
         (error) => {
-            showError('Location access denied or unavailable.');
+            showError('Location access was denied or timed out.');
         },
         { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
     );
@@ -279,18 +273,15 @@ function renderCurrentWeather(data, location) {
 
     DOM.cityName.textContent = location.displayName;
 
-    // Date Formatting
     const now = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
     DOM.currentDate.textContent = now.toLocaleDateString('en-US', options);
 
-    // Temp & Condition
     DOM.currentTemp.textContent = formatTemp(current.temperature_2m);
     
-    const wmo = WMO_CODES[current.weather_code] || { label: 'Unknown', icon: '🌤️' };
+    const wmo = WMO_CODES[current.weather_code] || { label: 'Clear', icon: '☀️' };
     DOM.weatherCondition.textContent = `${wmo.icon} ${wmo.label}`;
 
-    // Metrics
     DOM.humidityVal.textContent = `${current.relative_humidity_2m}%`;
     DOM.windVal.textContent = `${Math.round(current.wind_speed_10m)} km/h`;
     DOM.feelsLikeVal.textContent = `${formatTemp(current.apparent_temperature)}°`;
@@ -303,43 +294,49 @@ function renderForecast(data) {
 
     if (!daily || !daily.time) return;
 
-    // Render 5 upcoming days starting from Tomorrow (skipping Today at index 0)
+    // Render upcoming 5 days starting from Tomorrow (Index 1)
     const startIndex = 1;
     const endIndex = Math.min(6, daily.time.length);
 
     for (let i = startIndex; i < endIndex; i++) {
         const dateStr = daily.time[i];
         const dateObj = new Date(dateStr + 'T00:00:00');
-        const dayName = i === 1 ? 'Tomorrow' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-        const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+        const formattedDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
         const code = daily.weather_code[i];
         const wmo = WMO_CODES[code] || { label: 'Clear', icon: '☀️' };
 
         const maxTemp = formatTemp(daily.temperature_2m_max[i]);
         const minTemp = formatTemp(daily.temperature_2m_min[i]);
+        const pop = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0;
 
-        const card = document.createElement('div');
-        card.className = 'forecast-card';
-        card.innerHTML = `
-            <div class="forecast-day">${dayName}</div>
-            <div class="forecast-date">${formattedDate}</div>
-            <div style="font-size: 2.2rem; margin: 4px 0;">${wmo.icon}</div>
-            <div class="forecast-condition">${wmo.label}</div>
-            <div class="forecast-temp-range">
-                <span class="temp-max">${maxTemp}°</span>
-                <span class="temp-min">${minTemp}°</span>
+        const row = document.createElement('div');
+        row.className = 'forecast-row';
+        row.innerHTML = `
+            <div class="forecast-date-col">
+                <span class="forecast-day-name">${dayName}</span>
+                <span class="forecast-sub-date">${formattedDate}</span>
+            </div>
+            <div class="forecast-icon-col">${wmo.icon}</div>
+            <div class="forecast-temp-col">
+                <span class="forecast-temp-max">${maxTemp}°</span>
+                <span class="forecast-temp-min">${minTemp}°</span>
+            </div>
+            <div class="forecast-pop-col">
+                <span class="pop-icon">💧</span>
+                <span>${pop}%</span>
             </div>
         `;
 
-        DOM.forecastGrid.appendChild(card);
+        DOM.forecastGrid.appendChild(row);
     }
 }
 
 function saveRecentSearch(city) {
     let searches = AppState.recentSearches.filter(item => item.toLowerCase() !== city.toLowerCase());
     searches.unshift(city);
-    if (searches.length > 5) searches.pop(); // Keep top 5
+    if (searches.length > 5) searches.pop();
 
     AppState.recentSearches = searches;
     localStorage.setItem('atmosphere_recent', JSON.stringify(searches));
@@ -358,7 +355,7 @@ function renderRecentSearches() {
         const chip = document.createElement('button');
         chip.className = 'search-chip';
         chip.type = 'button';
-        chip.innerHTML = `<span>${city}</span>`;
+        chip.textContent = city;
         chip.addEventListener('click', () => {
             DOM.searchInput.value = city;
             fetchWeatherForCity(city);
@@ -374,30 +371,30 @@ function clearSearchHistory() {
 }
 
 function showLoadingState() {
-    DOM.currentTemp.classList.add('skeleton', 'skeleton-text');
-    DOM.weatherCondition.classList.add('skeleton', 'skeleton-text');
-    DOM.cityName.classList.add('skeleton', 'skeleton-text');
+    DOM.currentTemp.classList.add('skeleton');
+    DOM.weatherCondition.classList.add('skeleton');
+    DOM.cityName.classList.add('skeleton');
     
     DOM.forecastGrid.innerHTML = '';
     for (let i = 0; i < 5; i++) {
-        const skelCard = document.createElement('div');
-        skelCard.className = 'forecast-card skeleton';
-        skelCard.style.height = '160px';
-        DOM.forecastGrid.appendChild(skelCard);
+        const skelRow = document.createElement('div');
+        skelRow.className = 'forecast-row skeleton';
+        skelRow.style.height = '52px';
+        DOM.forecastGrid.appendChild(skelRow);
     }
 }
 
 function hideError() {
     DOM.errorBanner.classList.add('hidden');
-    DOM.currentTemp.classList.remove('skeleton', 'skeleton-text');
-    DOM.weatherCondition.classList.remove('skeleton', 'skeleton-text');
-    DOM.cityName.classList.remove('skeleton', 'skeleton-text');
+    DOM.currentTemp.classList.remove('skeleton');
+    DOM.weatherCondition.classList.remove('skeleton');
+    DOM.cityName.classList.remove('skeleton');
 }
 
 function showError(msg) {
     DOM.errorMessage.textContent = msg;
     DOM.errorBanner.classList.remove('hidden');
-    DOM.currentTemp.classList.remove('skeleton', 'skeleton-text');
-    DOM.weatherCondition.classList.remove('skeleton', 'skeleton-text');
-    DOM.cityName.classList.remove('skeleton', 'skeleton-text');
+    DOM.currentTemp.classList.remove('skeleton');
+    DOM.weatherCondition.classList.remove('skeleton');
+    DOM.cityName.classList.remove('skeleton');
 }
