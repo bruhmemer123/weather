@@ -17,7 +17,7 @@ const WMO_CODES = {
     45: { label: 'Foggy', icon: '🌫️' },
     48: { label: 'Rime Fog', icon: '🌫️' },
     51: { label: 'Light Drizzle', icon: '🌦️' },
-    53: { label: 'Moderate Drizzle', icon: '🌧' },
+    53: { label: 'Moderate Drizzle', icon: '🌧️' },
     55: { label: 'Dense Drizzle', icon: '🌧️' },
     61: { label: 'Slight Rain', icon: '🌦️' },
     63: { label: 'Moderate Rain', icon: '🌧️' },
@@ -46,6 +46,8 @@ const DOM = {
     clearHistoryBtn: document.getElementById('clearHistoryBtn'),
     errorBanner: document.getElementById('errorBanner'),
     errorMessage: document.getElementById('errorMessage'),
+    skeletonContainer: document.getElementById('skeletonContainer'),
+    mainDashboard: document.getElementById('mainDashboard'),
     cityName: document.getElementById('cityName'),
     currentDate: document.getElementById('currentDate'),
     currentTemp: document.getElementById('currentTemp'),
@@ -60,35 +62,131 @@ const DOM = {
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 [INIT] App loaded.");
+    console.log("🔒 [SEC] Protocol:", window.location.protocol);
+    console.log("🌐 [ENV] Origin:", window.location.origin);
+    
     initTheme();
     renderRecentSearches();
     setupEventListeners();
     
-    // Immediate Geolocation request on page open
     autoDetectLocationOnLoad();
 });
 
 function autoDetectLocationOnLoad() {
-    if (navigator.geolocation) {
-        showLoadingState();
-        hideError();
-        
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                await fetchWeatherData(latitude, longitude, 'Your Location');
-            },
-            (error) => {
-                // On permission denial or timeout, load default city
-                const fallbackCity = AppState.recentSearches[0] || 'London';
-                fetchWeatherForCity(fallbackCity);
-            },
-            { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
-        );
-    } else {
-        const fallbackCity = AppState.recentSearches[0] || 'London';
-        fetchWeatherForCity(fallbackCity);
+    console.log("📌 [AUTO-LOAD] Running automatic location lookup on launch...");
+    getUserLocation(true);
+}
+
+function handleGeolocation() {
+    console.log("👆 [USER ACTION] 'My Location' button clicked.");
+    getUserLocation(false);
+}
+
+// Diagnostic Geolocation Handler
+function getUserLocation(isAutoLoad = false) {
+    console.log(`\n--- 📍 DIAGNOSTIC GEOLOCATION START (isAutoLoad: ${isAutoLoad}) ---`);
+    
+    if (!('geolocation' in navigator)) {
+        console.error("❌ [GEO] navigator.geolocation is completely UNDEFINED on this browser/environment!");
+        handleGeoFallback('Geolocation is not supported by your browser.', isAutoLoad);
+        return;
     }
+
+    console.log("✅ [GEO] navigator.geolocation exists in browser.");
+
+    // Check Security Context (Browsers block geolocation on http:// except localhost)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        console.warn("⚠️ [GEO WARNING] Insecure context (HTTP)! Browsers reject Geolocation over HTTP unless running on localhost.");
+    }
+
+    // Permission API Inspection
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' })
+            .then(status => {
+                console.log(`🔑 [GEO PERMISSION STATUS]: "${status.state}"`);
+                status.onchange = () => console.log(`🔔 [GEO PERMISSION CHANGED]: New state = "${status.state}"`);
+            })
+            .catch(err => console.log("⚠️ [GEO PERMISSION API ERR]:", err));
+    }
+
+    showLoadingState();
+    hideError();
+
+    let resolved = false;
+
+    // 8-Second Safety Timeout Logger
+    const timeoutTimer = setTimeout(() => {
+        if (!resolved) {
+            resolved = true;
+            console.error("⏱️ [GEO TIMEOUT] 8000ms elapsed without callback from getCurrentPosition()! Browser may be waiting for user prompt or silent-blocking.");
+            handleGeoFallback('Location request timed out. Loading default location.', isAutoLoad);
+        }
+    }, 8000);
+
+    const options = {
+        enableHighAccuracy: false, // Set to false to allow fast IP/wifi fallback instead of requiring GPS hardware
+        timeout: 8000,
+        maximumAge: 60000
+    };
+
+    console.log("⏳ [GEO] Invoking navigator.geolocation.getCurrentPosition() with options:", options);
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            if (resolved) {
+                console.warn("⚠️ [GEO] Received success position AFTER timeout had already triggered!");
+                return;
+            }
+            resolved = true;
+            clearTimeout(timeoutTimer);
+
+            console.log("🎉 [GEO SUCCESS] Coordinates retrieved successfully!");
+            console.log(`   └─ Latitude:  ${position.coords.latitude}`);
+            console.log(`   └─ Longitude: ${position.coords.longitude}`);
+            console.log(`   └─ Accuracy:  ${position.coords.accuracy} meters`);
+
+            const { latitude, longitude } = position.coords;
+            let locationName = 'Your Location';
+
+            // Fetch weather directly using exact lat/lon
+            await fetchWeatherData(latitude, longitude, locationName);
+        },
+        (error) => {
+            if (resolved) {
+                console.warn("⚠️ [GEO] Received error callback AFTER timeout had already triggered!");
+                return;
+            }
+            resolved = true;
+            clearTimeout(timeoutTimer);
+
+            console.error("❌ [GEO ERROR REJECTED]:");
+            console.error(`   └─ Code:    ${error.code}`);
+            console.error(`   └─ Message: "${error.message}"`);
+
+            let msg = 'Unable to retrieve location.';
+            if (error.code === error.PERMISSION_DENIED) {
+                msg = 'Location permission denied by browser/user.';
+                console.error("   └─ Cause: User clicked 'Block' or browser policy denied access.");
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+                msg = 'Location position unavailable (e.g. no GPS/WiFi signal).';
+                console.error("   └─ Cause: Device cannot determine physical coordinates.");
+            } else if (error.code === error.TIMEOUT) {
+                msg = 'Location request timed out.';
+                console.error("   └─ Cause: Took too long to respond.");
+            }
+
+            handleGeoFallback(msg, isAutoLoad);
+        },
+        options
+    );
+}
+
+function handleGeoFallback(errorMsg, isAutoLoad) {
+    const fallbackCity = AppState.recentSearches[0] || 'Mumbai';
+    console.log(`🔄 [GEO FALLBACK] Executing fallback fetch for city: "${fallbackCity}"`);
+    fetchWeatherForCity(fallbackCity);
+    showError(`[Location Issue] ${errorMsg}`);
 }
 
 function setupEventListeners() {
@@ -100,12 +198,13 @@ function setupEventListeners() {
         e.preventDefault();
         const query = DOM.searchInput.value.trim();
         if (query) {
+            console.log(`🔍 [SEARCH SUBMITTED] City: "${query}"`);
             hideSuggestions();
             fetchWeatherForCity(query);
+            DOM.searchInput.value = '';
         }
     });
 
-    // Autocomplete search input debouncing
     DOM.searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         clearTimeout(AppState.debounceTimer);
@@ -161,6 +260,7 @@ function formatTemp(celsius) {
 }
 
 async function fetchWeatherForCity(cityName) {
+    console.log(`📡 [API FETCH] Geocoding city name: "${cityName}"`);
     showLoadingState();
     hideError();
 
@@ -168,7 +268,7 @@ async function fetchWeatherForCity(cityName) {
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=5&language=en&format=json`;
         const geoRes = await fetch(geoUrl);
         
-        if (!geoRes.ok) throw new Error('Failed to search city.');
+        if (!geoRes.ok) throw new Error(`Geocoding HTTP Error ${geoRes.status}`);
         const geoData = await geoRes.json();
 
         if (!geoData.results || geoData.results.length === 0) {
@@ -177,29 +277,35 @@ async function fetchWeatherForCity(cityName) {
         }
 
         const location = geoData.results[0];
+        console.log(`✅ [GEOCODING SUCCESS] Resolved "${cityName}" to:`, location.name, location.latitude, location.longitude);
         await fetchWeatherData(location.latitude, location.longitude, `${location.name}, ${location.country_code ? location.country_code.toUpperCase() : ''}`);
         
         saveRecentSearch(location.name);
     } catch (err) {
+        console.error("❌ [CITY FETCH ERROR]:", err);
         showError(err.message || 'Unable to fetch weather data.');
     }
 }
 
 async function fetchWeatherData(lat, lon, displayName) {
+    console.log(`📡 [API FETCH] Requesting weather forecast for (${lat}, ${lon}) - Label: "${displayName}"`);
     try {
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max,precipitation_probability_max&timezone=auto`;
         
         const response = await fetch(weatherUrl);
-        if (!response.ok) throw new Error('Forecast service unavailable.');
+        if (!response.ok) throw new Error(`Weather API HTTP Error ${response.status}`);
 
         const data = await response.json();
+        console.log("🎉 [WEATHER DATA SUCCESS] Received payload from Open-Meteo:", data);
 
         AppState.lastLocationData = { displayName, lat, lon };
         AppState.lastWeatherData = data;
 
         renderCurrentWeather(data, AppState.lastLocationData);
         renderForecast(data);
+        hideLoadingState();
     } catch (err) {
+        console.error("❌ [WEATHER FETCH ERROR]:", err);
         showError('Error connecting to weather service: ' + err.message);
     }
 }
@@ -217,7 +323,7 @@ async function fetchCitySuggestions(query) {
             hideSuggestions();
         }
     } catch (err) {
-        // Ignore network error during autocomplete typing
+        // Silently handle autocomplete network errors
     }
 }
 
@@ -231,7 +337,7 @@ function renderSuggestions(results) {
             <small style="color:var(--text-muted)">📍</small>
         `;
         div.addEventListener('click', () => {
-            DOM.searchInput.value = item.name;
+            DOM.searchInput.value = '';
             hideSuggestions();
             fetchWeatherData(item.latitude, item.longitude, `${item.name}, ${item.country_code ? item.country_code.toUpperCase() : ''}`);
             saveRecentSearch(item.name);
@@ -246,27 +352,6 @@ function hideSuggestions() {
     DOM.suggestionsDropdown.innerHTML = '';
 }
 
-function handleGeolocation() {
-    if (!navigator.geolocation) {
-        showError('Geolocation is not supported by your browser.');
-        return;
-    }
-
-    showLoadingState();
-    hideError();
-
-    navigator.geolocation.getCurrentPosition(
-        async (position) => {
-            const { latitude, longitude } = position.coords;
-            await fetchWeatherData(latitude, longitude, 'Your Location');
-        },
-        (error) => {
-            showError('Location access was denied or timed out.');
-        },
-        { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
-    );
-}
-
 function renderCurrentWeather(data, location) {
     const current = data.current;
     const daily = data.daily;
@@ -279,7 +364,7 @@ function renderCurrentWeather(data, location) {
 
     DOM.currentTemp.textContent = formatTemp(current.temperature_2m);
     
-    const wmo = WMO_CODES[current.weather_code] || { label: 'Clear', icon: '☀️' };
+    const wmo = WMO_CODES[current.weather_code] || { label: 'Clear', icon: '☀️️' };
     DOM.weatherCondition.textContent = `${wmo.icon} ${wmo.label}`;
 
     DOM.humidityVal.textContent = `${current.relative_humidity_2m}%`;
@@ -294,7 +379,6 @@ function renderForecast(data) {
 
     if (!daily || !daily.time) return;
 
-    // Render upcoming 5 days starting from Tomorrow (Index 1)
     const startIndex = 1;
     const endIndex = Math.min(6, daily.time.length);
 
@@ -357,7 +441,7 @@ function renderRecentSearches() {
         chip.type = 'button';
         chip.textContent = city;
         chip.addEventListener('click', () => {
-            DOM.searchInput.value = city;
+            DOM.searchInput.value = '';
             fetchWeatherForCity(city);
         });
         DOM.chipsContainer.appendChild(chip);
@@ -371,30 +455,22 @@ function clearSearchHistory() {
 }
 
 function showLoadingState() {
-    DOM.currentTemp.classList.add('skeleton');
-    DOM.weatherCondition.classList.add('skeleton');
-    DOM.cityName.classList.add('skeleton');
-    
-    DOM.forecastGrid.innerHTML = '';
-    for (let i = 0; i < 5; i++) {
-        const skelRow = document.createElement('div');
-        skelRow.className = 'forecast-row skeleton';
-        skelRow.style.height = '52px';
-        DOM.forecastGrid.appendChild(skelRow);
-    }
+    DOM.skeletonContainer.classList.remove('hidden');
+    DOM.mainDashboard.classList.add('hidden');
+}
+
+function hideLoadingState() {
+    DOM.skeletonContainer.classList.add('hidden');
+    DOM.mainDashboard.classList.remove('hidden');
 }
 
 function hideError() {
     DOM.errorBanner.classList.add('hidden');
-    DOM.currentTemp.classList.remove('skeleton');
-    DOM.weatherCondition.classList.remove('skeleton');
-    DOM.cityName.classList.remove('skeleton');
 }
 
 function showError(msg) {
+    console.warn("⚠️ [UI SHOW ERROR]:", msg);
     DOM.errorMessage.textContent = msg;
     DOM.errorBanner.classList.remove('hidden');
-    DOM.currentTemp.classList.remove('skeleton');
-    DOM.weatherCondition.classList.remove('skeleton');
-    DOM.cityName.classList.remove('skeleton');
+    hideLoadingState();
 }

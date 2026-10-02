@@ -1,42 +1,56 @@
 /* CSS Custom Properties (Theme Variables) */
 :root {
-    /* Light Mode Palette */
-    --bg-body: #f1f5f9;
+    /* Light Mode Palette - Subdued Blue */
+    --bg-body: #f8fafc;
     --card-bg: #ffffff;
-    --card-border: #cbd5e1; /* Clear border in Light Mode */
+    --card-border: #cbd5e1;
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #64748b;
-    --accent-color: #0284c7;
-    --accent-hover: #0369a1;
-    --accent-light: #e0f2fe;
+    --accent-color: #0369a1;
+    --accent-hover: #075985;
+    --accent-light: #f0f9ff;
     --input-bg: #ffffff;
     --input-border: #cbd5e1;
     --chip-bg: #e2e8f0;
     --chip-hover: #cbd5e1;
-    --skeleton-base: #e2e8f0;
-    --skeleton-highlight: #f8fafc;
-    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+    /* Skeleton Loading Tokens */
+    --skeleton-bg: #e2e8f0;
+    --skeleton-shimmer: linear-gradient(
+        90deg, 
+        rgba(226, 232, 240, 0) 0%, 
+        rgba(255, 255, 255, 0.6) 50%, 
+        rgba(226, 232, 240, 0) 100%
+    );
 }
 
 [data-theme="dark"] {
-    /* Dark Mode Palette */
+    /* Dark Mode Palette - Dimmed Soft Blue */
     --bg-body: #0f172a;
     --card-bg: #1e293b;
-    --card-border: rgba(255, 255, 255, 0.12); /* Clean border in Dark Mode */
+    --card-border: rgba(255, 255, 255, 0.12);
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
-    --accent-color: #38bdf8;
-    --accent-hover: #0ea5e9;
-    --accent-light: rgba(56, 189, 248, 0.15);
+    --accent-color: #0ea5e9;
+    --accent-hover: #0284c7;
+    --accent-light: rgba(14, 165, 233, 0.08);
     --input-bg: #1e293b;
     --input-border: #334155;
     --chip-bg: #334155;
     --chip-hover: #475569;
-    --skeleton-base: #1e293b;
-    --skeleton-highlight: #334155;
-    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+    /* Dark Skeleton Loading Tokens */
+    --skeleton-bg: #334155;
+    --skeleton-shimmer: linear-gradient(
+        90deg, 
+        rgba(51, 65, 85, 0) 0%, 
+        rgba(255, 255, 255, 0.08) 50%, 
+        rgba(51, 65, 85, 0) 100%
+    );
 }
 
 * {
@@ -65,7 +79,7 @@ body {
     gap: 20px;
 }
 
-/* Simple Card Component */
+/* Card Component */
 .card {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -351,7 +365,7 @@ header.app-header {
     color: var(--text-secondary);
 }
 
-/* Metric Grid Cards */
+/* Subtle Metric Card Styles & Subtle Hover Animation */
 .hero-right {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -366,18 +380,13 @@ header.app-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
-                box-shadow 0.25s ease, 
-                border-color 0.25s ease, 
-                background-color 0.25s ease;
-    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    cursor: default;
 }
 
 .metric-card:hover {
-    transform: translateY(-4px) scale(1.02);
+    transform: translateY(-2px);
     border-color: var(--accent-color);
-    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.15);
-    background-color: var(--accent-light);
 }
 
 .metric-icon-box {
@@ -390,11 +399,11 @@ header.app-header {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: transform 0.2s ease;
 }
 
 .metric-card:hover .metric-icon-box {
-    transform: scale(1.15) rotate(8deg);
+    transform: scale(1.08);
     border-color: var(--accent-color);
 }
 
@@ -452,7 +461,7 @@ header.app-header {
     align-items: center;
     padding: 14px 20px;
     border-bottom: 1px solid var(--card-border);
-    transition: background-color 0.2s ease, transform 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .forecast-row:last-child {
@@ -524,19 +533,68 @@ header.app-header {
     opacity: 0.8;
 }
 
-/* Skeleton Loading Utilities */
-.skeleton {
-    background-color: var(--skeleton-base);
-    border-radius: 8px;
-    color: transparent !important;
-    pointer-events: none;
-    animation: pulse 1.5s infinite;
+/* SKELETON SHIMMER LOADER */
+.skeleton-container {
+    width: 100%;
 }
 
-@keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1.0; }
-    100% { opacity: 0.6; }
+.skeleton-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-card::after,
+.skeleton-line::after,
+.skeleton-metric::after,
+.skeleton-forecast-row::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: var(--skeleton-shimmer);
+    animation: shimmerWave 1.5s infinite;
+}
+
+@keyframes shimmerWave {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.skeleton-line {
+    background-color: var(--skeleton-bg);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skel-city { height: 28px; width: 60%; margin-bottom: 8px; }
+.skel-date { height: 16px; width: 40%; margin-bottom: 12px; }
+.skel-temp { height: 60px; width: 45%; margin-bottom: 12px; }
+.skel-status { height: 20px; width: 35%; }
+.skel-title { height: 16px; width: 180px; margin-bottom: 14px; }
+
+.skeleton-metric {
+    height: 64px;
+    background-color: var(--skeleton-bg);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-forecast-row {
+    height: 52px;
+    background-color: var(--skeleton-bg);
+    border-bottom: 1px solid var(--card-border);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-forecast-row:last-child {
+    border-bottom: none;
 }
 
 /* Tablet Breakpoint */
@@ -577,12 +635,4 @@ header.app-header {
 
 .hidden {
     display: none !important;
-}
-
-footer.app-footer {
-    margin-top: auto;
-    padding: 20px 0 10px 0;
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--text-muted);
 }

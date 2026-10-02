@@ -67,7 +67,38 @@
             <span id="errorMessage">Unable to find location.</span>
         </div>
 
-        <main>
+        <!-- SKELETON SHIMMER LOADER STATE -->
+        <div id="skeletonContainer" class="skeleton-container hidden">
+            <div class="card skeleton-card">
+                <div class="weather-hero">
+                    <div class="hero-left">
+                        <div class="skeleton-line skel-city"></div>
+                        <div class="skeleton-line skel-date"></div>
+                        <div class="skeleton-line skel-temp"></div>
+                        <div class="skeleton-line skel-status"></div>
+                    </div>
+                    <div class="hero-right">
+                        <div class="skeleton-metric"></div>
+                        <div class="skeleton-metric"></div>
+                        <div class="skeleton-metric"></div>
+                        <div class="skeleton-metric"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="forecast-section" style="margin-top: 20px;">
+                <div class="skeleton-line skel-title"></div>
+                <div class="card skeleton-card" style="padding: 0;">
+                    <div class="skeleton-forecast-row"></div>
+                    <div class="skeleton-forecast-row"></div>
+                    <div class="skeleton-forecast-row"></div>
+                    <div class="skeleton-forecast-row"></div>
+                    <div class="skeleton-forecast-row"></div>
+                </div>
+            </div>
+        </div>
+
+        <main id="mainDashboard">
             <!-- Current Weather Card -->
             <section id="currentWeatherCard" class="card">
                 <div id="weatherContent" class="weather-hero">
