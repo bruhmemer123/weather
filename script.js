@@ -1,8 +1,8 @@
 // Application State Management
 const AppState = {
     currentUnit: 'C', // 'C' or 'F'
-    currentTheme: localStorage.getItem('atmosphere_theme') || 'dark',
-    recentSearches: JSON.parse(localStorage.getItem('atmosphere_recent')) || ['Mumbai', 'London', 'New York'],
+    currentTheme: localStorage.getItem('weather_theme') || 'dark',
+    recentSearches: JSON.parse(localStorage.getItem('weather_recent')) || ['Mumbai', 'London', 'New York'],
     lastLocationData: null,
     lastWeatherData: null,
     debounceTimer: null
@@ -24,13 +24,13 @@ const WMO_CODES = {
     61: { label: 'Rain: Slight', icon: '🌦️' },
     63: { label: 'Rain: Moderate', icon: '🌧️' },
     65: { label: 'Rain: Heavy', icon: '🌧️' },
-    66: { label: 'Freezing Rain: Light', icon: '🌧️' },
+    66: { label: 'Freezing Rain: Light', icon: '🌧️️' },
     67: { label: 'Freezing Rain: Heavy', icon: '🌧️' },
     71: { label: 'Snow fall: Slight', icon: '🌨️' },
     73: { label: 'Snow fall: Moderate', icon: '❄️' },
     75: { label: 'Snow fall: Heavy', icon: '❄️' },
     77: { label: 'Snow grains', icon: '❄️' },
-    80: { label: 'Rain showers: Slight', icon: '🌦️️' },
+    80: { label: 'Rain showers: Slight', icon: '🌦️' },
     81: { label: 'Rain showers: Moderate', icon: '🌧️' },
     82: { label: 'Rain showers: Violent', icon: '⛈️' },
     85: { label: 'Snow showers: Slight', icon: '🌨️' },
@@ -88,42 +88,64 @@ function handleGeolocation() {
     getUserLocation(false);
 }
 
-// Fast Native Geolocation Handler (Direct Coordinates)
+// Fixed Geolocation Function - Pure Native Pattern
+// Optimized Fast Geolocation Handler
 function getUserLocation(isAutoLoad = false) {
     if (!('geolocation' in navigator)) {
-        console.warn("⚠️ [GEO] Geolocation API not available in this browser.");
-        fallbackToDefaultCity("Geolocation not supported by browser.", isAutoLoad);
+        console.warn("⚠️ [GEO] Geolocation API not available.");
+        fallbackToDefaultCity("Geolocation not supported.", isAutoLoad);
         return;
     }
 
-    showLoadingState();
+    // 1. Check for cached coordinates in localStorage for INSTANT rendering (< 50ms)
+    const cachedLat = localStorage.getItem('geo_last_lat');
+    const cachedLon = localStorage.getItem('geo_last_lon');
+
+    let hasRenderedCache = false;
+
+    if (cachedLat && cachedLon) {
+        console.log("⚡ [FAST LOAD] Loading last known location from cache instantly...");
+        fetchWeatherData(parseFloat(cachedLat), parseFloat(cachedLon), "Your Location");
+        hasRenderedCache = true;
+    } else {
+        showLoadingState();
+    }
+
     hideError();
 
-    console.log("⏳ [GEO] Waiting for browser position response...");
+    console.log("⏳ [GEO] Requesting fresh location from browser...");
 
+    // Pure native configuration - NO artificial low timeouts
     const geoOptions = {
         enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 300000 // 5-minute location caching for fast page refreshes
+        maximumAge: 300000 // 5 minutes position caching in browser memory
     };
 
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            console.log(`🎉 [GEO SUCCESS] Coordinates obtained: Lat ${lat}, Lon ${lon}`);
+            console.log(`🎉 [GEO SUCCESS] Lat ${lat}, Lon ${lon}`);
 
-            // Fetch weather directly for exact coordinates
+            // Save fresh coordinates to localStorage
+            localStorage.setItem('geo_last_lat', lat);
+            localStorage.setItem('geo_last_lon', lon);
+
             await fetchWeatherData(lat, lon, "Your Location");
         },
         async (err) => {
-            console.error("❌ [GEO DENIED/FAILED]:", err.message);
-            fallbackToDefaultCity("Unable to access current location.", isAutoLoad);
+            console.error("❌ [GEO TIMEOUT/FAILED]:", err.message);
+
+            // CRITICAL FIX: If we ALREADY rendered valid cached data, DO NOT overwrite it with a fallback city!
+            if (!hasRenderedCache) {
+                fallbackToDefaultCity("Unable to detect current location.", isAutoLoad);
+            } else {
+                console.log("ℹ️ [GEO NOTICE] Retaining previously rendered cached coordinates.");
+            }
         },
         geoOptions
     );
 }
-
 function fallbackToDefaultCity(msg, isAutoLoad) {
     const fallbackCity = AppState.recentSearches[0] || 'Mumbai';
     console.log(`🔄 [FALLBACK] Loading fallback city: "${fallbackCity}"`);
@@ -179,7 +201,7 @@ function initTheme() {
 
 function toggleTheme() {
     AppState.currentTheme = AppState.currentTheme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('atmosphere_theme', AppState.currentTheme);
+    localStorage.setItem('weather_theme', AppState.currentTheme);
     initTheme();
 }
 
@@ -367,7 +389,7 @@ function saveRecentSearch(city) {
     if (searches.length > 5) searches.pop();
 
     AppState.recentSearches = searches;
-    localStorage.setItem('atmosphere_recent', JSON.stringify(searches));
+    localStorage.setItem('weather_recent', JSON.stringify(searches));
     renderRecentSearches();
 }
 
@@ -394,7 +416,7 @@ function renderRecentSearches() {
 
 function clearSearchHistory() {
     AppState.recentSearches = [];
-    localStorage.removeItem('atmosphere_recent');
+    localStorage.removeItem('weather_recent');
     renderRecentSearches();
 }
 
