@@ -24,12 +24,12 @@ const WMO_CODES = {
     61: { label: 'Rain: Slight', icon: '🌦️' },
     63: { label: 'Rain: Moderate', icon: '🌧️' },
     65: { label: 'Rain: Heavy', icon: '🌧️' },
-    66: { label: 'Freezing Rain: Light', icon: '🌧️️' },
+    66: { label: 'Freezing Rain: Light', icon: '🌧' },
     67: { label: 'Freezing Rain: Heavy', icon: '🌧️' },
     71: { label: 'Snow fall: Slight', icon: '🌨️' },
     73: { label: 'Snow fall: Moderate', icon: '❄️' },
     75: { label: 'Snow fall: Heavy', icon: '❄️' },
-    77: { label: 'Snow grains', icon: '❄️' },
+    77: { label: 'Snow grains', icon: '❄️️' },
     80: { label: 'Rain showers: Slight', icon: '🌦️' },
     81: { label: 'Rain showers: Moderate', icon: '🌧️' },
     82: { label: 'Rain showers: Violent', icon: '⛈️' },
@@ -69,42 +69,33 @@ const DOM = {
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 [INIT] App booted up.");
     initTheme();
     renderRecentSearches();
     setupEventListeners();
-    
-    // Auto-detect location on load
     autoDetectLocationOnLoad();
 });
 
 function autoDetectLocationOnLoad() {
-    console.log("📌 [AUTO-LOAD] Requesting user location...");
     getUserLocation(true);
 }
 
 function handleGeolocation() {
-    console.log("👆 [USER ACTION] 'My Location' clicked.");
     getUserLocation(false);
 }
 
-// Fixed Geolocation Function - Pure Native Pattern
-// Optimized Fast Geolocation Handler
+// Optimized Fast & Reliable Geolocation Handler
 function getUserLocation(isAutoLoad = false) {
     if (!('geolocation' in navigator)) {
-        console.warn("⚠️ [GEO] Geolocation API not available.");
         fallbackToDefaultCity("Geolocation not supported.", isAutoLoad);
         return;
     }
 
-    // 1. Check for cached coordinates in localStorage for INSTANT rendering (< 50ms)
     const cachedLat = localStorage.getItem('geo_last_lat');
     const cachedLon = localStorage.getItem('geo_last_lon');
 
     let hasRenderedCache = false;
 
     if (cachedLat && cachedLon) {
-        console.log("⚡ [FAST LOAD] Loading last known location from cache instantly...");
         fetchWeatherData(parseFloat(cachedLat), parseFloat(cachedLon), "Your Location");
         hasRenderedCache = true;
     } else {
@@ -113,42 +104,32 @@ function getUserLocation(isAutoLoad = false) {
 
     hideError();
 
-    console.log("⏳ [GEO] Requesting fresh location from browser...");
-
-    // Pure native configuration - NO artificial low timeouts
     const geoOptions = {
         enableHighAccuracy: false,
-        maximumAge: 300000 // 5 minutes position caching in browser memory
+        maximumAge: 300000 // 5 minutes position caching
     };
 
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            console.log(`🎉 [GEO SUCCESS] Lat ${lat}, Lon ${lon}`);
 
-            // Save fresh coordinates to localStorage
             localStorage.setItem('geo_last_lat', lat);
             localStorage.setItem('geo_last_lon', lon);
 
             await fetchWeatherData(lat, lon, "Your Location");
         },
         async (err) => {
-            console.error("❌ [GEO TIMEOUT/FAILED]:", err.message);
-
-            // CRITICAL FIX: If we ALREADY rendered valid cached data, DO NOT overwrite it with a fallback city!
             if (!hasRenderedCache) {
                 fallbackToDefaultCity("Unable to detect current location.", isAutoLoad);
-            } else {
-                console.log("ℹ️ [GEO NOTICE] Retaining previously rendered cached coordinates.");
             }
         },
         geoOptions
     );
 }
+
 function fallbackToDefaultCity(msg, isAutoLoad) {
     const fallbackCity = AppState.recentSearches[0] || 'Mumbai';
-    console.log(`🔄 [FALLBACK] Loading fallback city: "${fallbackCity}"`);
     fetchWeatherForCity(fallbackCity);
     if (!isAutoLoad) {
         showError(msg);
@@ -164,10 +145,9 @@ function setupEventListeners() {
         e.preventDefault();
         const query = DOM.searchInput.value.trim();
         if (query) {
-            console.log(`🔍 [SEARCH] Query: "${query}"`);
             hideSuggestions();
             fetchWeatherForCity(query);
-            DOM.searchInput.value = ''; // Always clear search bar
+            DOM.searchInput.value = ''; // Clear search bar
         }
     });
 
@@ -242,18 +222,15 @@ async function fetchWeatherForCity(cityName) {
         }
 
         const location = geoData.results[0];
-        console.log(`✅ [CITY FOUND] ${location.name} (${location.latitude}, ${location.longitude})`);
         await fetchWeatherData(location.latitude, location.longitude, `${location.name}, ${location.country_code ? location.country_code.toUpperCase() : ''}`);
         
         saveRecentSearch(location.name);
     } catch (err) {
-        console.error("❌ [CITY FETCH ERR]:", err);
         showError(err.message || 'Unable to fetch weather data.');
     }
 }
 
 async function fetchWeatherData(lat, lon, displayName) {
-    console.log(`📡 [API FETCH] Fetching forecast data for (${lat}, ${lon})...`);
     try {
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max,precipitation_probability_max&timezone=auto`;
         
@@ -261,7 +238,6 @@ async function fetchWeatherData(lat, lon, displayName) {
         if (!response.ok) throw new Error('Forecast service unavailable.');
 
         const data = await response.json();
-        console.log("🎉 [API SUCCESS] Forecast payload received.");
 
         AppState.lastLocationData = { displayName, lat, lon };
         AppState.lastWeatherData = data;
@@ -270,7 +246,6 @@ async function fetchWeatherData(lat, lon, displayName) {
         renderForecast(data);
         hideLoadingState();
     } catch (err) {
-        console.error("❌ [WEATHER API ERR]:", err);
         showError('Error connecting to weather service: ' + err.message);
     }
 }
@@ -435,7 +410,6 @@ function hideError() {
 }
 
 function showError(msg) {
-    console.warn("⚠️ [UI SHOW ERROR]:", msg);
     DOM.errorMessage.textContent = msg;
     DOM.errorBanner.classList.remove('hidden');
     hideLoadingState();
