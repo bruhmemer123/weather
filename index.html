@@ -1,122 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Interactive weather and forecast dashboard built with vanilla JavaScript and Open-Meteo." />
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather App</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script src="script.js" defer></script>
-  </head>
-  <body>
-    <div class="page-shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">Open-Meteo weather dashboard</p>
-          <h1>Weather App</h1>
-          <p class="hero-copy">Search any city to see live conditions, a five-day forecast, and key metrics in a clean responsive layout.</p>
+    <!-- Google Fonts for modern typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Controls -->
+        <header class="app-header glass-card">
+            <div class="brand-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/>
+                </svg>
+                <span>Weather App</span>
+            </div>
+            <div class="header-controls">
+                <button id="geoBtn" class="control-btn" title="Use current location">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                    </svg>
+                    <span>My Location</span>
+                </button>
+                <button id="unitToggle" class="control-btn" title="Toggle °C / °F">
+                    <span id="unitLabel">°C</span>
+                </button>
+                <button id="themeToggle" class="control-btn" title="Toggle Dark/Light Mode">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <section class="search-section">
+            <form id="searchForm" class="search-form" autocomplete="off">
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search city or location (e.g., Tokyo, London, Paris)..." aria-label="Search city name" required>
+                    <svg class="search-icon" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                    <!-- Auto-complete Suggestions Dropdown -->
+                    <div id="suggestionsDropdown" class="suggestions-dropdown"></div>
+                </div>
+                <button type="submit" class="search-submit-btn">Search</button>
+            </form>
+
+            <!-- Recent Searches Chips Container -->
+            <div class="recent-searches">
+                <span class="recent-label">Recent:</span>
+                <div id="chipsContainer" class="chips-container"></div>
+                <button id="clearHistoryBtn" class="clear-history-btn hidden">Clear</button>
+            </div>
+        </section>
+
+        <div id="errorBanner" class="error-banner hidden" role="alert">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <span id="errorMessage">City not found. Please verify the name and try again.</span>
         </div>
-        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle light and dark mode">
-          <span class="theme-toggle__icon" aria-hidden="true">◐</span>
-          <span data-theme-label>Dark mode</span>
-        </button>
-      </header>
 
-      <main>
-        <section class="search-panel" aria-labelledby="search-heading">
-          <div>
-            <h2 id="search-heading">Find a location</h2>
-            <p>Enter a city or location name and press Enter or Search.</p>
-          </div>
+        <main>
+            <!-- Current Weather Overview Card -->
+            <section id="currentWeatherCard" class="glass-card">
+                <div id="weatherContent" class="weather-hero">
+                    <!-- Left: Main Temp & Status -->
+                    <div class="hero-left">
+                        <div class="location-badge">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            </svg>
+                            <span id="cityName">—</span>
+                        </div>
+                        <div id="currentDate" class="date-text">Loading date...</div>
+                        <div class="temperature-container">
+                            <span id="currentTemp" class="temp-value">--</span>
+                            <span id="currentUnit" class="temp-unit">°C</span>
+                        </div>
+                        <div class="weather-status">
+                            <span id="weatherCondition">--</span>
+                        </div>
+                    </div>
 
-          <form class="search-form" data-search-form>
-            <label class="sr-only" for="location-input">City or location</label>
-            <input id="location-input" name="location" type="search" placeholder="Try Tokyo, Nairobi, or Lisbon" autocomplete="off" data-search-input />
-            <button type="submit" class="primary-button">Search</button>
-          </form>
+                    <!-- Right: Metric Details Grid -->
+                    <div class="hero-right">
+                        <div class="metric-card">
+                            <div class="metric-icon-box">
+                                <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Humidity</span>
+                                <span id="humidityVal" class="metric-value">--%</span>
+                            </div>
+                        </div>
 
-          <button class="secondary-button" type="button" data-location-button>Use my location</button>
+                        <div class="metric-card">
+                            <div class="metric-icon-box">
+                                <svg viewBox="0 0 24 24"><path d="M14.5 17c0 1.65-1.35 3-3 3s-3-1.35-3-3 1.35-3 3-3h12v2h-9c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1zm-2-12c1.65 0 3 1.35 3 3s-1.35 3-3 3H2V9h10.5c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1H9.5c0-1.65 1.35-3 3-3zm6.5 6c1.65 0 3 1.35 3 3s-1.35 3-3 3H2v-2h17c.55 0 1-.45 1-1s-.45-1-1-1H11v-2h8z"/></svg>
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Wind Speed</span>
+                                <span id="windVal" class="metric-value">-- km/h</span>
+                            </div>
+                        </div>
 
-          <p class="status-message" role="status" aria-live="polite" data-status-message></p>
-        </section>
+                        <div class="metric-card">
+                            <div class="metric-icon-box">
+                                <svg viewBox="0 0 24 24"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-3-8c.55 0 1 .45 1 1v3h-2V6c0-.55.45-1 1-1z"/></svg>
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Feels Like</span>
+                                <span id="feelsLikeVal" class="metric-value">--°</span>
+                            </div>
+                        </div>
 
-        <section class="dashboard" aria-live="polite">
-          <article class="current-weather card" data-current-weather>
-            <div class="card__loading" data-current-loading>
-              <div class="skeleton skeleton--title"></div>
-              <div class="skeleton skeleton--icon"></div>
-              <div class="skeleton skeleton--line"></div>
-              <div class="skeleton skeleton--line"></div>
-              <div class="skeleton skeleton--line short"></div>
-            </div>
-
-            <div class="current-weather__content is-hidden" data-current-content>
-              <div class="current-weather__header">
-                <div>
-                  <p class="current-weather__day" data-current-day></p>
-                  <h3 data-location-name>Search for a city</h3>
-                  <p class="current-weather__date" data-current-date></p>
+                        <div class="metric-card">
+                            <div class="metric-icon-box">
+                                <svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Max UV Index</span>
+                                <span id="uvIndexVal" class="metric-value">--</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="current-weather__icon" data-weather-icon aria-hidden="true">⛅</div>
-              </div>
+            </section>
 
-              <div class="current-weather__summary">
-                <div>
-                  <output class="current-weather__temperature" data-current-temperature>--°</output>
-                  <p class="current-weather__description" data-current-description>Weather details will appear here.</p>
+            <section class="forecast-section">
+                <div class="section-header">
+                    <h2 class="section-title">5-Day Forecast</h2>
                 </div>
-                <div class="current-weather__feels-like">
-                  <span>Feels like</span>
-                  <output data-feels-like>--°</output>
+                <div id="forecastGrid" class="forecast-grid">
                 </div>
-              </div>
+            </section>
+        </main>
 
-              <div class="metrics-grid">
-                <div class="metric">
-                  <span>Humidity</span>
-                  <output data-humidity>--%</output>
-                </div>
-                <div class="metric">
-                  <span>Wind</span>
-                  <output data-wind-speed>-- km/h</output>
-                </div>
-                <div class="metric">
-                  <span>Condition</span>
-                  <output data-condition-label>--</output>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <aside class="forecast card">
-            <div class="card__section-header">
-              <div>
-                <p class="section-kicker">Five-day outlook</p>
-                <h2>Forecast</h2>
-              </div>
-            </div>
-
-            <div class="forecast__loading" data-forecast-loading>
-              <div class="forecast-skeleton"></div>
-              <div class="forecast-skeleton"></div>
-              <div class="forecast-skeleton"></div>
-              <div class="forecast-skeleton"></div>
-              <div class="forecast-skeleton"></div>
-            </div>
-
-            <div class="forecast__list is-hidden" data-forecast-list></div>
-          </aside>
-        </section>
-      </main>
     </div>
 
-    <template id="forecast-card-template">
-      <article class="forecast-card">
-        <p class="forecast-card__day"></p>
-        <div class="forecast-card__icon" aria-hidden="true"></div>
-        <p class="forecast-card__temps"></p>
-        <p class="forecast-card__label"></p>
-      </article>
-    </template>
-  </body>
+    <script src="script.js"></script>
+</body>
 </html>
